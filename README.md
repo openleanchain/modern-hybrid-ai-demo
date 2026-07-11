@@ -9,7 +9,7 @@ This is not a single-model chatbot. A deterministic **Enterprise Harness** route
 
 ## Try the stories
 
-![Modern Hybrid AI Demo Flow](https://mhai.pythonanywhere.com/static/img/mhai_demo_stories.png)
+![Modern Hybrid AI Demo Stories](https://mhai.pythonanywhere.com/static/img/mhai_demo_stories.png)
 
 | Story | What it demonstrates |
 |---|---|
