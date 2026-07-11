@@ -1,0 +1,36 @@
+name: architecture-evals
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Start deterministic mock subsystem
+        run: python -m llm_service.app_llm > /tmp/hybrid-llm.log 2>&1 &
+      - name: Wait for mock subsystem
+        run: |
+          python - <<'PY'
+          import time
+          import requests
+
+          for _ in range(30):
+              try:
+                  if requests.get("http://127.0.0.1:5001/health", timeout=1).ok:
+                      break
+              except requests.RequestException:
+                  time.sleep(0.2)
+          else:
+              raise SystemExit("mock subsystem did not become healthy")
+          PY
+      - run: python -m evals.run_evals
+
