@@ -5,22 +5,7 @@ A working reference implementation of a three-tier hybrid AI system for enterpri
 **Live public demo:** https://mhai.pythonanywhere.com/
 
 This is not a single-model chatbot. A deterministic **Enterprise Harness** routes each case by complexity and risk, then selects the lowest sufficient execution path:
-
-```mermaid
-flowchart LR
-    C[Business case] --> H[Enterprise Harness]
-    H --> R{Risk and complexity}
-    R -->|Known fact| T1[Tier 1: records and rules]
-    R -->|Focused reasoning| T2[Tier 2: LLM and skills]
-    R -->|Multi-step work| T3[Tier 3: Agent-Local Harness]
-    T1 --> O[Business outcome]
-    T2 --> O
-    T3 --> G{Approval required?}
-    G -->|No| O
-    G -->|Yes| A[Human approval]
-    A --> O
-    M[Memory, tools, trace, fallback] -. supports .-> H
-```
+![Modern Hybrid AI Demo Flow](https://mhai.pythonanywhere.com/static/img/mhai_demo_flow.png)
 
 ## Try the stories
 
