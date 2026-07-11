@@ -1,0 +1,118 @@
+# ---------------------------------------------------------------------------
+# Modern Hybrid AI System — configuration
+# Everything the harness routes on lives here, not in code.
+# ---------------------------------------------------------------------------
+
+services:
+  # The main system calls the LLM subsystem over REST. Stopping that service
+  # (or flipping its chaos flag) is a real outage the circuit breaker reacts to.
+  llm_service_url: "http://127.0.0.1:5001"
+  llm_timeout_seconds: 30
+
+llm:
+  # The LLM service resolves a tier to a concrete model. Model choice lives in
+  # exactly one place so the main system stays model-agnostic.
+  tier_models:
+    "2": "gpt-5-nano"       # Tier 2 — cheap, fast
+    "3": "gpt-4.1-mini"     # Tier 3 — stronger reasoning
+  embed_model: "text-embedding-3-small"
+  embed_dim: 256            # 3-small supports the `dimensions` param; mock matches this
+
+# ---------------------------------------------------------------------------
+# Router — the request is scored on two independent axes: complexity and risk.
+# Risk is detected deterministically and conservatively; complexity may use the
+# LLM classifier but falls back to heuristics when the LLM is unavailable.
+# ---------------------------------------------------------------------------
+router:
+  # High-stakes intents are caught by rules, never left to a model's judgement.
+  # A match forces the validated/confirm path regardless of apparent simplicity.
+  high_stakes_patterns:
+    - '\bcancel\b'
+    - '\bclose (my )?account\b'
+    - '\brefund\b(?!\s+policy)'      # a refund *request*, not "refund policy"
+    - '\bdelete\b'
+    - '\bchange (my )?(plan|billing|payment)\b'
+    - '\bupgrade\b'
+    - '\bdowngrade\b'
+
+  # Fast-path only fires on a single short clause; compound/analytical questions
+  # ("why ...", "... and ...", long) fall through to the classifier instead.
+  fastpath_max_words: 9
+
+  # Fast-path: fully-specified, rule-answerable requests go straight to Tier 1.
+  deterministic_intents:
+    balance:   ['\bbalance\b', '\bhow much do i owe\b', '\bamount due\b']
+    plan:      ['\b(what|which) plan\b', '\bmy plan\b', '\bcurrent plan\b']
+    invoice:   ['\binvoice\b', '\blatest bill\b', '\blast bill\b']
+    payment:   ['\blast payment\b', '\bwhen did i pay\b', '\bpayment history\b']
+
+  # If the LLM classifier is down, complexity is estimated from these signals.
+  complexity_heuristics:
+    tier3_signals:
+      - '\bwhy\b.*\bwrong\b'
+      - '\binvestigate\b'
+      - '\bfigure out\b'
+      - '\blast (three|3|few)\b.*\binvoices?\b'
+      - '\bwhat happened\b'
+      - '\bcompare\b'
+    # length over this many words leans complex when no other signal fires
+    long_request_words: 40
+
+  # Confidence below this from the classifier fails safe: escalate a tier.
+  min_classifier_confidence: 0.55
+
+# ---------------------------------------------------------------------------
+# Memory — Tiered Batched Rolling Summary (wired fully in Phase 2).
+# Values live here now so Phase 1 and Phase 2 share one source of truth.
+# ---------------------------------------------------------------------------
+memory:
+  max_raw_turns: 10        # M_max: compress when the raw buffer hits this many TURNS
+  batch_compress: 5        # B: number of oldest turns folded per compression
+  summary_max_chars: 800   # keep the durable running summary bounded
+  # A turn = one user + one assistant exchange (counted in turns, not messages).
+
+# ---------------------------------------------------------------------------
+# Retrieval
+# ---------------------------------------------------------------------------
+retrieval:
+  top_k: 3
+
+# ---------------------------------------------------------------------------
+# Always-on / resilience (Phase 3)
+# ---------------------------------------------------------------------------
+resilience:
+  circuit_breaker:
+    failure_threshold: 3          # consecutive upstream failures before opening
+    recovery_timeout_seconds: 5   # wait in OPEN before probing (HALF-OPEN)
+    success_threshold: 1          # successes in HALF-OPEN needed to close
+  fallback:
+    cache_enabled: true           # serve a recent good answer during an outage
+
+# ---------------------------------------------------------------------------
+# Production layer (Phase 4)
+# ---------------------------------------------------------------------------
+writegate:
+  refund_window_days: 30          # refunds allowed within this many days of the invoice
+  auto_approve_cap_cents: 10000   # refunds up to USD 100 auto-approve; above needs a manager
+  cycle_days: 30                  # billing cycle length used for proration math
+
+guardrails:
+  enabled: true
+  injection_patterns:
+    - 'ignore (all|the|your|previous) (instructions|prompt)'
+    - 'disregard (the|your|all|previous)'
+    - 'you are now'
+    - 'system prompt'
+    - 'reveal (your|the) (prompt|instructions|system)'
+    - 'act as (an?|the) '
+  max_message_chars: 2000
+
+observability:
+  metrics_enabled: true
+
+# ---------------------------------------------------------------------------
+# Tier 3 agent-local harness budgets
+# ---------------------------------------------------------------------------
+agent:
+  max_iterations: 5
+  max_tool_calls: 8

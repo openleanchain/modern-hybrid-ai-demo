@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hybrid AI - Guided Case Demo</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/player.css?v=trace-color-2">
+</head>
+<body>
+<main class="story-page">
+  <header class="story-top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <div>
+        <h1>Hybrid AI</h1>
+        <p class="sub">one transparent case story at a time</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <label class="persona">
+        <span>Customer</span>
+        <select id="persona"></select>
+      </label>
+      <div class="status" id="llm-status" title="Model service health">
+        <span class="dot" id="llm-dot"></span>
+        <span id="llm-label">checking...</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="story-shell">
+    <aside class="story-guide">
+      <p class="eyebrow">Story</p>
+      <select id="story-select" class="story-select" aria-label="Choose a guided story"></select>
+      <h2 id="overview-title">Not a chatbot. A case-handling story.</h2>
+      <p id="overview-copy">Choose one story, then step through what the customer sees and what the system does internally.</p>
+
+      <div class="guide-box">
+        <p class="eyebrow">Guide</p>
+        <ol id="guide-list"></ol>
+      </div>
+
+      <div class="run-controls">
+        <button class="primary-action" id="prepare-story" type="button">Run Story</button>
+        <button class="secondary-action" id="auto-run" type="button">Auto-Run</button>
+        <button class="secondary-action hidden" id="pause-run" type="button">Pause</button>
+      </div>
+    </aside>
+
+    <section class="story-player">
+      <div class="stage-progress">
+        <span id="step-count">Step 1 of 6</span>
+        <div class="progress-track"><span id="progress-fill"></span></div>
+      </div>
+
+      <div class="player-grid">
+        <article class="stage-card" id="stage-card">
+          <p class="eyebrow" id="stage-kicker">Overview</p>
+          <h3 id="stage-title">Choose a story to begin.</h3>
+          <p id="stage-body">You can move manually step by step, or use auto-run with pauses so an audience can follow what happens.</p>
+          <div class="stage-note" id="stage-note">Each story uses the same page and the same guided pattern.</div>
+        </article>
+
+        <aside class="behind-panel">
+          <p class="eyebrow">Behind the scenes</p>
+          <h3 id="behind-title">What the system is doing</h3>
+          <ul id="behind-list"></ul>
+          <div class="lane-strip" aria-label="System path">
+            <span data-node="harness">Harness</span>
+            <span data-node="tier1">Tier 1</span>
+            <span data-node="tier2">Tier 2</span>
+            <span data-node="tier3">Tier 3</span>
+            <span data-node="agent">Local Harness</span>
+            <span data-node="gate">Approval</span>
+            <span data-node="memory">Memory</span>
+          </div>
+        </aside>
+      </div>
+
+      <div class="stage-controls">
+        <button class="secondary-action" id="prev-step" type="button">Back</button>
+        <button class="primary-action" id="next-step" type="button">Next</button>
+      </div>
+
+      <section class="memory-strip" aria-label="Memory state">
+        <div class="memory-rail-wrap">
+          <div class="memory-rail" id="memory-rail" aria-label="Raw turn and summarize progress"></div>
+          <div class="memory-rail-note" id="memory-rail-note">No turns recorded yet.</div>
+        </div>
+      </section>
+    </section>
+  </section>
+
+  <section class="evidence-panel" aria-label="Optional evidence">
+    <form class="custom-case" id="custom-case-form">
+      <div>
+        <p class="eyebrow">Try a custom case</p>
+        <span>Useful after the guided story, when the visitor understands what the system is showing.</span>
+      </div>
+      <input id="custom-case-input" type="text" placeholder="Example: Can you explain my latest invoice?">
+      <button class="primary-action" id="custom-case-run" type="submit">Run</button>
+    </form>
+
+    <details class="evidence-section" open>
+      <summary>Technical evidence</summary>
+      <div class="evidence-body evidence-columns">
+        <article>
+          <p class="eyebrow">Routing</p>
+          <div id="route-summary" class="route-summary muted">Run a story to see the selected path.</div>
+        </article>
+        <article>
+          <p class="eyebrow">System state</p>
+          <div id="resilience-summary" class="route-summary muted">Checking service status...</div>
+        </article>
+      </div>
+    </details>
+
+    <details class="evidence-section" open>
+      <summary>Transcript and raw trace</summary>
+      <div class="evidence-body evidence-columns">
+        <article>
+          <p class="eyebrow">Transcript</p>
+          <div class="messages" id="messages"></div>
+        </article>
+        <article>
+          <p class="eyebrow">Execution trace</p>
+          <ol class="trace" id="trace"></ol>
+        </article>
+      </div>
+    </details>
+
+    <details class="evidence-section" open>
+      <summary>Shared library</summary>
+      <div class="evidence-body library-grid">
+        <article>
+          <p class="eyebrow">Tools</p>
+          <ul class="library-list">
+            {% for tool in tools %}
+            <li><span>{{ tool.name }}</span><small>{{ tool.tiers|join(' / ') }}</small></li>
+            {% endfor %}
+          </ul>
+        </article>
+        <article>
+          <p class="eyebrow">Skills</p>
+          <ul class="library-list">
+            {% for skill in skills %}
+            <li><span>{{ skill.name }}</span><small>{{ skill.tiers|join(' / ') }}</small></li>
+            {% endfor %}
+          </ul>
+        </article>
+      </div>
+    </details>
+  </section>
+</main>
+
+<script>
+  window.PERSONAS = [
+    {% for p in personas %}
+    {tenant:"{{ p.tenant_id }}", customer:"{{ p.customer_id }}", name:"{{ p.name }}", org:"{{ p.tenant_name }}"},
+    {% endfor %}
+  ];
+</script>
+<script src="/static/player.js?v=trace-color-2"></script>
+</body>
+</html>
