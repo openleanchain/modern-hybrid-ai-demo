@@ -1,2 +1,154 @@
-# modern-hybrid-ai-demo
-working demonstration and sample business scenarios for Modern Hybrid AI Framework
+# Modern Hybrid AI Architecture Demo
+
+A working reference implementation of a three-tier hybrid AI system for enterprise case handling.
+
+**Live public demo:** https://mhai.pythonanywhere.com/
+
+This is not a single-model chatbot. A deterministic **Enterprise Harness** routes each case by complexity and risk, then selects the lowest sufficient execution path:
+
+```mermaid
+flowchart LR
+    C[Business case] --> H[Enterprise Harness]
+    H --> R{Risk and complexity}
+    R -->|Known fact| T1[Tier 1: records and rules]
+    R -->|Focused reasoning| T2[Tier 2: LLM and skills]
+    R -->|Multi-step work| T3[Tier 3: Agent-Local Harness]
+    T1 --> O[Business outcome]
+    T2 --> O
+    T3 --> G{Approval required?}
+    G -->|No| O
+    G -->|Yes| A[Human approval]
+    A --> O
+    M[Memory, tools, trace, fallback] -. supports .-> H
+```
+
+## Try the stories
+
+| Story | What it demonstrates |
+|---|---|
+| Balance from records | Tier 1 deterministic lookup with no model |
+| Policy with evidence | Tier 2 focused reasoning grounded in policy |
+| Billing investigation | Tier 3 bounded agent loop with shared tools |
+| Refund approval | Deterministic validation and write-gate |
+| Model outage | Circuit breaker and cache -> rules -> template -> human fallback |
+| Tiered memory | Raw turns, batched compression, and authoritative record refresh |
+
+## Quick start: deterministic mock mode
+
+Requirements: Python 3.11 or newer.
+
+```bash
+python -m venv .venv
+```
+
+Activate the environment, then install dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Start the mock LLM subsystem in terminal 1:
+
+```bash
+python -m llm_service.app_llm
+```
+
+Seed a fresh sample database and start the main application in terminal 2:
+
+```bash
+python -m main_system.db.seed
+python -m main_system.app_main
+```
+
+Open <http://127.0.0.1:5000>.
+
+Mock mode is the default. It is deterministic, offline, and has no API cost.
+
+## Optional OpenAI mode
+
+The model provider is isolated inside `llm_service`. The main system remains provider-agnostic.
+
+```bash
+export LLM_MODE=openai
+export OPENAI_API_KEY=your-key
+python -m llm_service.app_llm
+```
+
+On PowerShell:
+
+```powershell
+$env:LLM_MODE = "openai"
+$env:OPENAI_API_KEY = "your-key"
+python -m llm_service.app_llm
+```
+
+Re-seed after changing embedding modes so document and query embeddings use the same implementation.
+
+Never commit `.env` files or API keys.
+
+## Architecture
+
+- **Enterprise Harness**: deterministic request lifecycle, routing, guardrails, fallback, memory, validation, and trace assembly.
+- **Tier 1**: exact record lookup, rules, calculations, and high-risk routing. No model required.
+- **Tier 2**: one focused LLM pass using governed tools and reusable skills.
+- **Tier 3**: an Agent-Local Harness runs a bounded plan -> act -> observe loop.
+- **Write-gate**: propose -> validate -> confirm -> revalidate -> commit.
+- **Tiered memory**: checkpoint every turn, summarize older batches, and keep live figures in systems of record.
+- **Always-on fallback**: cache -> deterministic rules -> policy template -> human handoff.
+- **Optional evidence**: execution trace labels model, skill, tool, memory, tier, gate, breaker, and fallback events.
+
+## Run the eval suite
+
+Keep the mock LLM subsystem running, then execute:
+
+```bash
+python -m evals.run_evals
+```
+
+The suite reseeds the database and checks routing, grounding, tenant isolation, guardrails, memory-related behavior, and write-gate validation.
+
+## Configuration
+
+Edit `config/config.yaml` to change routing patterns, model mappings, memory thresholds, circuit-breaker behavior, write-gate policy, and agent budgets.
+
+Environment variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `LLM_MODE` | `mock` | `mock` or `openai` in the LLM subsystem |
+| `OPENAI_API_KEY` | unset | Required only for OpenAI mode |
+| `MAIN_PORT` | `5000` | Main application port |
+| `LLM_PORT` | `5001` | LLM subsystem port |
+
+## Project layout
+
+```text
+config/                 routing, memory, resilience, and guardrail configuration
+evals/                  deterministic architecture eval suite
+llm_service/            mock and optional OpenAI model subsystem
+main_system/harness/    enterprise router and agent-local harness
+main_system/tiers/      Tier 1, Tier 2, and Tier 3 handlers
+main_system/tools/      governed record, knowledge, and calculation tools
+main_system/skills/     reusable model procedures
+main_system/memory/     tiered batched rolling summary
+main_system/writegate/  deterministic action validation and commit
+main_system/resilience/ circuit breaker and fallback ladder
+main_system/static/     guided story UI
+main_system/db/         schema and reproducible sample-data seed
+```
+
+## Demo data and limitations
+
+All people, organizations, account records, invoices, and policies are synthetic fixtures generated by `main_system.db.seed`.
+
+The repository demonstrates architectural patterns. It is not a production deployment: authentication, authorization, durable distributed metrics, managed secrets, production databases, and infrastructure controls must be added for a real environment.
+
+Do not enter personal, confidential, or production information into the demo.
+
+## Contributing and security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and [SECURITY.md](SECURITY.md) for responsible reporting and scope.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
